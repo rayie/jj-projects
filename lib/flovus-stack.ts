@@ -5,7 +5,16 @@ import { Runtime } from 'aws-cdk-lib/aws-lambda';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { join } from 'path';
 
-import { Cors, IResource, Integration, LambdaIntegration, MockIntegration, PassthroughBehavior, RestApi } from 'aws-cdk-lib/aws-apigateway';
+import {
+  Cors,
+  Deployment,
+  IResource, Integration,
+  LambdaIntegration,
+  LambdaRestApi,
+  MockIntegration,
+  PassthroughBehavior, RestApi,
+  Stage
+} from 'aws-cdk-lib/aws-apigateway';
 import { NodejsFunction, NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-nodejs';
 
 
@@ -55,6 +64,11 @@ class FlovusStack extends Stack {
     const role_for_lambda = new iam.Role(this, NAMES.role_for_lamdba_name, {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
     });
+    //add permission to write to cloudwatch logs
+    role_for_lambda.addToPolicy(new iam.PolicyStatement({
+      actions: ['logs:*'],
+      resources: ['*'],
+    }));
     role_for_lambda.addToPolicy(new iam.PolicyStatement({
       actions: ['s3:*'],
       resources: [bucket.bucketArn],
@@ -98,30 +112,63 @@ class FlovusStack extends Stack {
     table.grantFullAccess(myLambda);
     bucket.grantReadWrite(myLambda);
 
+
     // API Gateway
-    const api = new RestApi(this, NAMES.api_gateway_name, {
-      restApiName: 'Flovus Service',
+    const integrationOptions = {
+      proxy: true,
+      // requestParameters: {
+      //   'integration.request.header.X-Amz-Invocation-Type': 'method.request.header.InvocationType'
+      // }
+    }
+    const api = new LambdaRestApi(this, NAMES.api_gateway_name, {
+      handler: myLambda,
+      proxy: true,
+      defaultMethodOptions:{
+        methodResponses: [{
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true
+          },
+        }]
+      },
+      integrationOptions: integrationOptions,
       defaultCorsPreflightOptions: {
         allowOrigins: Cors.ALL_ORIGINS,
         allowMethods: Cors.ALL_METHODS,
         allowHeaders: Cors.DEFAULT_HEADERS,
-      }
-    });
-
-    const resource = api.root.addResource("flovus")
-
-    const integrationOptions = {
-      requestParameters: {
-        'integration.request.header.X-Amz-Invocation-Type': 'method.request.header.InvocationType'
-      }
-    }
-
-    resource.addMethod('POST', new LambdaIntegration(myLambda, integrationOptions), {
-      
-      requestParameters: {
-        'method.request.header.InvocationType': false
+        statusCode: 204,
       },
     });
+
+    // const resource = api.root.addResource("flovus")
+    // resource.addMethod('POST', new LambdaIntegration(myLambda, integrationOptions), {
+      
+    //   requestParameters: {
+    //     'method.request.header.InvocationType': false
+    //   },
+    //   methodResponses: [{
+    //     statusCode: '200',
+    //     responseParameters: {
+    //       'method.response.header.Access-Control-Allow-Origin': "'*'",
+    //     },
+    //   }]
+
+    // });
+
+    // const deployment = new Deployment(this, 'Deployment', {
+    //   api: api,
+    // });
+
+    // new Stage(this, 'ProdStage', {
+    //   deployment: deployment,
+    //   stageName: 'prod_explicit',
+    // });
+
+    // //I need to see what the resulting invocatino endpoint is
+    // new CfnOutput(this, 'ApiUrl', {
+    //   value: api.url,
+    // });
+
 
     // resource.addMethod('OPTIONS', new MockIntegration({
     //   integrationResponses: [{
