@@ -38,6 +38,15 @@ class FlovusStack extends Stack {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       accessControl: s3.BucketAccessControl.PRIVATE,
       encryption: s3.BucketEncryption.S3_MANAGED,
+      cors: [
+        {
+          allowedHeaders: ['*'],
+          allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.PUT],
+          allowedOrigins: ['*'],
+          exposedHeaders: ['ETag'],
+          maxAge: 3000,
+        }
+      ],
     });
 
     const table = new dynamodb.Table(this, NAMES.table_name, {
@@ -129,6 +138,11 @@ class FlovusStack extends Stack {
           responseParameters: {
             'method.response.header.Access-Control-Allow-Origin': true
           },
+          responseModels: {
+            'application/json': {
+              modelId: 'Empty'
+            }
+          }
         }]
       },
       integrationOptions: integrationOptions,
