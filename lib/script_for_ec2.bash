@@ -24,3 +24,9 @@ aws s3 cp output_file.txt "s3://flovus/output_file.txt"
 # 8. Insert a record into the DynamoDB table
 aws dynamodb put-item --table-name TmpFlovus \
   --item '{"output_file_path": {"S": "'$(dirname "$INPUT_FILE_PATH")'/output_file.txt"}}'
+
+# 9. Get the instance ID of the EC2 instance matching the tag 'project=flovus' 
+INSTANCE_ID=aws ec2 describe-instances --filters "Name=tag:project,Values=flovus" \
+  --query "Reservations[*].Instances[*].InstanceId" --output text
+
+# . Trigger the lambda function to shut down the EC2 instance

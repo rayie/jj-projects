@@ -1,4 +1,4 @@
-import { App, CfnOutput, Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
+import { App, CfnOutput, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Runtime } from 'aws-cdk-lib/aws-lambda';
@@ -7,13 +7,7 @@ import { join } from 'path';
 
 import {
   Cors,
-  Deployment,
-  IResource, Integration,
-  LambdaIntegration,
   LambdaRestApi,
-  MockIntegration,
-  PassthroughBehavior, RestApi,
-  Stage
 } from 'aws-cdk-lib/aws-apigateway';
 import { NodejsFunction, NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-nodejs';
 
@@ -91,6 +85,11 @@ class FlovusStack extends Stack {
       resources: ['*'],
     }));
 
+    role_for_lambda.addToPolicy(new iam.PolicyStatement({
+      actions: ['iam:PassRole'],
+      resources: [role_for_ec2.roleArn]
+    }));
+
     const instanceProfile = new iam.CfnInstanceProfile(this, NAMES.profile_for_ec2, {
       roles: [role_for_ec2.roleName],
     });
@@ -125,9 +124,6 @@ class FlovusStack extends Stack {
     // API Gateway
     const integrationOptions = {
       proxy: true,
-      // requestParameters: {
-      //   'integration.request.header.X-Amz-Invocation-Type': 'method.request.header.InvocationType'
-      // }
     }
     const api = new LambdaRestApi(this, NAMES.api_gateway_name, {
       handler: myLambda,
@@ -153,62 +149,6 @@ class FlovusStack extends Stack {
         statusCode: 204,
       },
     });
-
-    // const resource = api.root.addResource("flovus")
-    // resource.addMethod('POST', new LambdaIntegration(myLambda, integrationOptions), {
-      
-    //   requestParameters: {
-    //     'method.request.header.InvocationType': false
-    //   },
-    //   methodResponses: [{
-    //     statusCode: '200',
-    //     responseParameters: {
-    //       'method.response.header.Access-Control-Allow-Origin': "'*'",
-    //     },
-    //   }]
-
-    // });
-
-    // const deployment = new Deployment(this, 'Deployment', {
-    //   api: api,
-    // });
-
-    // new Stage(this, 'ProdStage', {
-    //   deployment: deployment,
-    //   stageName: 'prod_explicit',
-    // });
-
-    // //I need to see what the resulting invocatino endpoint is
-    // new CfnOutput(this, 'ApiUrl', {
-    //   value: api.url,
-    // });
-
-
-    // resource.addMethod('OPTIONS', new MockIntegration({
-    //   integrationResponses: [{
-    //     statusCode: '200',
-    //     responseParameters: {
-    //       'method.response.header.Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
-    //       'method.response.header.Access-Control-Allow-Origin': "'*'",
-    //       'method.response.header.Access-Control-Allow-Credentials': "'false'",
-    //       'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,GET,PUT,POST,DELETE'",
-    //     },
-    //   }],
-    //   passthroughBehavior: PassthroughBehavior.NEVER,
-    //   requestTemplates: {
-    //     "application/json": "{\"statusCode\": 200}"
-    //   },
-    // }), {
-    //   methodResponses: [{
-    //     statusCode: '200',
-    //     responseParameters: {
-    //       'method.response.header.Access-Control-Allow-Headers': true,
-    //       'method.response.header.Access-Control-Allow-Methods': true,
-    //       'method.response.header.Access-Control-Allow-Credentials': true,
-    //       'method.response.header.Access-Control-Allow-Origin': true,
-    //     },
-    //   }]
-    // })   
 
 
   }
